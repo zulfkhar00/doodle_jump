@@ -85,11 +85,11 @@ class Doodler():
             self.vy = self.vy + 0.65
             if self.y + self.r + self.vy > self.g:
                 self.vy = self.g - (self.y + self.r)
-        for i in range(len(game.platforms)):
-            p = game.platforms[i]
-            if self.y + self.img_h <= p.y and self.x-10 >= p.x and self.x+self.img_w+5 <= p.x + p.w:
+        
+        for p in game.platforms:
+            if self.y + 45 <= p.y and self.x+(self.img_w/2) >= p.x and self.x+(self.img_w/2) <= p.x + p.w:
                 self.g = p.y
-                fill(0, 125, 0)
+                fill(255, 0, 0)
                 rect(p.x, p.y, p.w, p.h)
                 break     
             else:
@@ -122,7 +122,7 @@ class Game:
         self.addPlatforms(8)
     
     def addPlatforms(self, n):
-        for i in range(n):
+        for i in range(n-1, -1, -1):
             x = random.randint(0, self.w-80)
             y = (self.h//8)*i
             # y = random.randint(i*(self.h//8), (self.h//8)*(i+1))
@@ -136,7 +136,7 @@ class Game:
 
         for p in offScreenPlatforms:
             game.platforms.remove(p)
-            game.addPlatforms(1)
+            game.addPlatforms(1) # todo 
         
         
     def display(self):
