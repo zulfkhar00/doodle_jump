@@ -38,8 +38,8 @@ class Doodler():
         self.vy += self.accel_g
         for platform in game.platforms:
             if (((self.y >= platform.y-50) and (self.y <= platform.y) and (self.vy >= 0)) and ((self.x >= platform.x-25) and (self.x <= platform.x+platform.w))):
-                self.y = platform.y-25
-                self.vy = -17
+                self.y = platform.y-70
+                self.vy = -15
                 if game.score/100 > 200:
                     if random.randint(0, 5) > 3:
                         platform.destroy()
@@ -71,6 +71,8 @@ class Platform:
             self.img = loadImage(path + "/assets/platform1.png")
         elif platformType == "moving":
             self.img = loadImage(path + "/assets/platform2.png")
+        elif platformType == "fake":
+            self.img = loadImage(path + "/assets/brown/brown_1.png")
             
     def display(self):
         image(self.img, self.x, self.y, self.w, self.h)
@@ -109,10 +111,10 @@ class Game:
             fill(0, 0, 0)
             textSize(30)
             text("Score: "+str(game.score//100), 20, 40)
-            if self.score//100 >= 500:
-                self.level = 1
-            elif self.score//100 >= 1000:
+            if self.score//100 >= 1000:
                 self.level = 2
+            elif self.score//100 >= 500:
+                self.level = 1
             else:
                 self.level = 0
         else:
@@ -137,12 +139,20 @@ def platform_manager():
     for p in game.platforms:
         if p.y > game.h:
             game.platforms.remove(p)
-
+            
     while len(game.platforms) < 7:
         x = random.randint(0, game.w-80)
         y = abs(600-(120*len(game.platforms)))
-        new = Platform(x, y, 80, 20, "stable")
-        game.platforms.append(new)
+        random_num = random.randint(0, 30) 
+        if random_num > 25:
+            new = Platform(x, y, 80, 20, "moving")
+            game.platforms.append(new)
+        elif random_num > 20:
+            new = Platform(x, y, 80, 20, "fake")
+            game.platforms.append(new)
+        else:    
+            new = Platform(x, y, 80, 20, "stable")
+            game.platforms.append(new)
 
 def setup():
     size(game.w, game.h)
