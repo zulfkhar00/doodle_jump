@@ -1,5 +1,6 @@
 import os
 import random
+import json
 
 path = os.getcwd()
 
@@ -29,6 +30,8 @@ class Doodler():
         self.r_img = loadImage(path + "/assets/" + "lik-right.png")
         self.l_img = loadImage(path + "/assets/" + "lik-left.png")
         self.up_img = loadImage(path + "/assets/" + "lik-puca.png") 
+        self.with_jetpack_l_img = loadImage(path + "/assets/" + "with_jetpack_l.png")
+        self.with_jetpack_r_img = loadImage(path + "/assets/" + "with_jetpack_r.png")
         self.img_w = w
         self.img_h = h
         self.dir = RIGHT
@@ -37,15 +40,22 @@ class Doodler():
         self.accel_g = 0.8
         self.climb = 0
         self.bullets = []
+        self.isBoosted = False
     
     def display(self):
         self.update()
-        if self.dir is RIGHT:
-            image(self.r_img, self.x, self.y)
-        elif self.dir is UP:
-            image(self.up_img, self.x, self.y)
+        if self.vy < -35:
+            if self.dir is RIGHT:
+                image(self.with_jetpack_r_img, self.x, self.y, self.img_w+10, self.img_h)
+            elif self.dir is LEFT:
+                image(self.with_jetpack_l_img, self.x, self.y, self.img_w+30, self.img_h+20)
         else:
-            image(self.l_img, self.x, self.y)
+            if self.dir is RIGHT:
+                image(self.r_img, self.x, self.y)
+            elif self.dir is UP:
+                image(self.up_img, self.x, self.y)
+            else:
+                image(self.l_img, self.x, self.y)
         
     def update(self): # from example project
         if self.y > height+25:
@@ -64,7 +74,6 @@ class Doodler():
                 newBullet = Bullet(self.x+20, self.y, 20, 20)
                 self.bullets.append(newBullet)
             elif self.bullets[-1].y < 200:
-                print(self.y, self.bullets[0].y)
                 newBullet = Bullet(self.x+20, self.y, 20, 20)
                 self.bullets.append(newBullet)
             self.dir = UP
@@ -77,14 +86,17 @@ class Doodler():
         for bullet in self.bullets:
             bullet.display()
         
-        self.vy += self.accel_g
-        for platform in game.platforms:
-            if (((self.y+self.img_h >= platform.y) and (self.y+self.img_h <= platform.y+platform.h) and (self.vy >= 0)) and ((self.x >= platform.x-25) and (self.x <= platform.x+platform.w))):
-                self.y = platform.y-70
-                self.vy = -15
-                platform.isTouched = True
-                if game.level == 1:
-                    platform.destroy()
+        if not self.isBoosted:
+            self.vy += self.accel_g
+            for platform in game.platforms:
+                if (((self.y+self.img_h >= platform.y) and (self.y+self.img_h <= platform.y+platform.h) and (self.vy >= 0)) and ((self.x >= platform.x-25) and (self.x <= platform.x+platform.w))):
+                    self.y = platform.y-70
+                    self.vy = -15
+                    platform.isTouched = True
+                    if game.level == 1:
+                        platform.destroy()
+        else:
+            self.vy -= 100
         self.x += self.vx
         self.y += self.vy
         
@@ -101,6 +113,8 @@ class Doodler():
                 game.score += self.climb
             for enemy in game.enemies:
                 enemy.y += self.climb
+            for booster in game.boosters:
+                booster.y += self.climb
 
 class Platform:
     def __init__(self, x, y, w, h, platformType):
@@ -164,11 +178,48 @@ class Enemy:
         self.img = loadImage(path + "/assets/" + enemyType + ".png")
     def update(self):
         d = game.doodler
-        if (self.x > d.x and self.x < d.x+d.img_w) and (self.y >= d.y and self.y <= d.y+d.img_h):
-            game.gameOver()
+        if d.vy < -35:
+            pass
+        else:
+            if (self.x > d.x and self.x < d.x+d.img_w) and (self.y >= d.y and self.y <= d.y+d.img_h):
+                game.gameOver()
     def display(self):
         self.update()
         image(self.img, self.x, self.y, self.w, self.h)
+
+class Booster:
+    def __init__(self, x, y, w, h, type):
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
+        self.type = type
+        self.img = loadImage(path + "/assets/" + "jetpack1" + ".png")
+        self.time = 0
+        
+    def update(self):
+        d = game.doodler
+        if (d.x+d.img_w > self.x and d.x < self.x+self.w) and (self.y >= d.y and self.y <= d.y+d.img_h):
+            game.doodler.isBoosted = True
+            self.jetpack()
+        else:
+            game.doodler.isBoosted = False
+    
+    def jetpack(self):
+        if self.time < 100:
+            self.time += 1
+            game.doodler.vy = 0
+        else:
+            self.time = 0
+            game.doodler.isBoosted = False
+            for b in game.boosters:
+                if b == self:
+                    game.boosters.remove(b)
+                    break
+            
+    def display(self):
+        self.update()
+        image(self.img, self.x, self.y, self.w+10, self.h+10)
 
 class Game:
     def __init__(self, w, h):
@@ -177,6 +228,7 @@ class Game:
         self.y_shift = 0
         self.platforms = []
         self.enemies = []
+        self.boosters = []
         self.backgroundImage = loadImage(path+"/assets/bck@2x.png")
         self.addPlatforms(8)
         self.doodler = Doodler(self.platforms[0].x, self.platforms[0].y - 100, 35, 50)
@@ -198,6 +250,8 @@ class Game:
                 platform.display()
             for enemy in self.enemies:
                 enemy.display()
+            for booster in self.boosters:
+                booster.display()
             self.doodler.display()
             platform_manager()
             fill(0, 0, 0)
@@ -214,22 +268,44 @@ class Game:
             background(0)
             fill(255, 255, 255)
             textAlign(CENTER, CENTER)
-            textSize(80)
-            text("GAME", width/2, 2*height/10)
-            text("OVER", width/2, 3*height/10)
-            textSize(40)
-            text("Score: "+str(game.score//100), width/2, 5*height/10)
-            text("Retry: [CLICK]", width/2, 7*height/10)
-            text("Exit: [ESC]", width/2, 8*height/10)
+            textSize(30)
+            text("GAME OVER", width/2, 1*height/10)
+            textSize(20)
+            self.showRecords()
+            text("Top Scores:", width/2, 3*height/10)
+            text("Score: "+str(game.score//100), width/2, 7.5*height/10)
+            text("Retry: [CLICK]", width/2, 8.5*height/10)
+            text("Exit: [ESC]", width/2, 9*height/10)
             textAlign(LEFT)
+    
+    def showRecords(self):
+        records = []
+        with open(path + '/records.json') as json_file:
+            records = json.load(json_file)['scores']
+        if len(records) >= 5:
+            for i in range(5):
+                text(str(i+1) + '.  ' + str(records[::-1][i]), width/2, (3+(i+1)/1.99)*height/10)
+        elif 0 < len(records) < 5:
+            for i in range(len(records)):
+                text(str(i+1) + '.  ' + str(records[::-1][i]), width/2, (3+(i+1)/1.99)*height/10)
+        else:
+            pass
     
     def gameOver(self):
         self.isStarted = not self.isStarted
+        data = {}
+        with open(path + '/records.json') as json_file:
+            data = json.load(json_file)
+        if self.score//100 != 0:
+            data['scores'].append(self.score//100)
+            data['scores'] = sorted(data['scores'])
+            with open(path+'/records.json', 'w') as outfile:
+                json.dump(data, outfile)
 
 game = Game(400, 700)
 
 def platform_manager():
-    while len(game.platforms) < 7:
+    while len(game.platforms) < 9:
         x = random.randint(0, game.w-80)
         y = game.platforms[-1].y - 70
         random_num = random.randint(0, 30) 
@@ -259,17 +335,32 @@ def platform_manager():
             coor.delegate = newEnemy
             game.enemies.append(newEnemy)
     
+    if random.randint(0,130) % 111 == 0 and len(game.boosters) == 0:
+        possible_coordinates = [game.platforms[-2], game.platforms[-3]]
+        coor = random.choice(possible_coordinates)
+        x = coor.x 
+        y = coor.y-35
+        newBooster = Booster(x,y,30,30,"")
+        coor.delegate = newBooster
+        game.boosters.append(newBooster)
+    
     for p in game.platforms:
         if p.y >= game.h:
             game.platforms.remove(p)
     for e in game.enemies:
         if e.y >= game.h:
             game.enemies.remove(e)
+    for b in game.boosters:
+        if b.y >= game.h:
+            game.boosters.remove(b)
 
 def setup():
-    frameRate(30)
+    frameRate(40)
     size(game.w, game.h)
     background(255, 255, 255)
+    with open(path + '/records.json') as json_file:
+        data = json.load(json_file)
+        print(data)
 
 def draw():
     background(255, 255, 255)
@@ -294,9 +385,13 @@ def keyReleased():
 def mousePressed():
     if not game.isStarted:
         game.isStarted = True
+        game.doodler.isBoosted = False
         game.score = 0
         game.platforms = []
+        game.boosters = []
         game.enemies = []
         game.addPlatforms(8)
         game.doodler.x = game.platforms[0].x
         game.doodler.y = game.platforms[0].y - 100
+        game.doodler.vx = 0
+        game.doodler.vy = 0
