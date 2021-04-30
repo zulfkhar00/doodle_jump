@@ -2,7 +2,24 @@ import os
 import random
 
 path = os.getcwd()
-print(path)
+
+class Bullet:
+    def __init__(self, x, y, w, h):
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
+        self.img = loadImage(path + "/assets/" + "spray.png")
+    
+    def display(self):
+        self.update()
+        image(self.img, self.x, self.y, self.w, self.h)
+    def update(self):
+        for e in game.enemies:
+            if (self.x > e.x and self.x < e.x+e.w) and (self.y >= e.y and self.y <= e.y+e.h):
+                game.enemies.remove(e)
+        self.y = self.y - 10
+
 class Doodler():
     def __init__(self, x, y, w, h):
         self.x = x
@@ -11,17 +28,22 @@ class Doodler():
         self.vy = 0
         self.r_img = loadImage(path + "/assets/" + "lik-right.png")
         self.l_img = loadImage(path + "/assets/" + "lik-left.png")
+        self.up_img = loadImage(path + "/assets/" + "lik-puca.png") 
         self.img_w = w
         self.img_h = h
         self.dir = RIGHT
+        self.last_dir = RIGHT
         self.key_handler = {LEFT:False, RIGHT:False, UP:False}
         self.accel_g = 0.8
         self.climb = 0
+        self.bullets = []
     
     def display(self):
         self.update()
         if self.dir is RIGHT:
             image(self.r_img, self.x, self.y)
+        elif self.dir is UP:
+            image(self.up_img, self.x, self.y)
         else:
             image(self.l_img, self.x, self.y)
         
@@ -32,18 +54,36 @@ class Doodler():
         if self.key_handler[LEFT] == True:
             self.x += -6
             self.dir = LEFT
+            self.last_dir = LEFT 
         elif self.key_handler[RIGHT] == True:
             self.x += 6
             self.dir = RIGHT
+            self.last_dir = RIGHT
+        elif self.key_handler[UP] == True:
+            if len(self.bullets) == 0:
+                newBullet = Bullet(self.x+20, self.y, 20, 20)
+                self.bullets.append(newBullet)
+            elif self.bullets[-1].y < 200:
+                print(self.y, self.bullets[0].y)
+                newBullet = Bullet(self.x+20, self.y, 20, 20)
+                self.bullets.append(newBullet)
+            self.dir = UP
+        else:
+            self.dir = self.last_dir
+        
+        for bullet in self.bullets:
+            if bullet.y <= 0:
+                self.bullets.remove(bullet)
+        for bullet in self.bullets:
+            bullet.display()
+        
         self.vy += self.accel_g
         for platform in game.platforms:
-            if (((self.y >= platform.y-50) and (self.y <= platform.y) and (self.vy >= 0)) and ((self.x >= platform.x-25) and (self.x <= platform.x+platform.w))):
+            if (((self.y+self.img_h >= platform.y) and (self.y+self.img_h <= platform.y+platform.h) and (self.vy >= 0)) and ((self.x >= platform.x-25) and (self.x <= platform.x+platform.w))):
                 self.y = platform.y-70
                 self.vy = -15
-                if game.score/100 > 200:
-                    if random.randint(0, 5) > 3:
-                        platform.destroy()
-                elif game.score/100 > 500:
+                platform.isTouched = True
+                if game.level == 1:
                     platform.destroy()
         self.x += self.vx
         self.y += self.vy
@@ -59,6 +99,8 @@ class Doodler():
             for platform in game.platforms:
                 platform.y += self.climb
                 game.score += self.climb
+            for enemy in game.enemies:
+                enemy.y += self.climb
 
 class Platform:
     def __init__(self, x, y, w, h, platformType):
@@ -66,19 +108,67 @@ class Platform:
         self.y = y
         self.w = w
         self.h = h
+        self.vx = 2
+        self.delegate = None
         self.type = platformType
+        self.isTouched = False
         if platformType == "stable":
             self.img = loadImage(path + "/assets/platform1.png")
         elif platformType == "moving":
             self.img = loadImage(path + "/assets/platform2.png")
         elif platformType == "fake":
             self.img = loadImage(path + "/assets/brown/brown_1.png")
+            self.brown_img = []
+            for i in range(1, 7):
+                self.brown_img.append(loadImage(path + "/assets/brown/brown_"+str(i)+".png"))
             
     def display(self):
-        image(self.img, self.x, self.y, self.w, self.h)
+        self.blueMove()
+        if self.type == 'fake':
+            if self.isTouched:
+                for i in range(5):
+                    image(self.brown_img[i], self.x, self.y, self.w, self.h)
+                for p in game.platforms[::-1]:
+                    if p.type == 'fake' and p.isTouched and game.doodler.vy > 0:
+                        # self.sound_brown.rewind()
+                        # self.sound_brown.play()
+                        game.platforms.remove(p)
+                        break
+            else:
+                image(self.brown_img[0], self.x, self.y, self.w, self.h)
+        else:
+            image(self.img, self.x, self.y, self.w, self.h)
     
     def destroy(self):
         del self
+        
+    def blueMove(self):
+        if self.type == "moving":
+            if self.x + self.w >= game.w - 5:
+                self.vx = -2
+            elif self.x <= 5:
+                self.vx = 2
+            self.x += self.vx
+            if self.delegate is not None:
+                self.delegate.x = self.x
+
+class Enemy:
+    def __init__(self, x, y, w, h, enemyType):
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
+        self.type = enemyType
+        self.vx = 2
+        self.vy = 2
+        self.img = loadImage(path + "/assets/" + enemyType + ".png")
+    def update(self):
+        d = game.doodler
+        if (self.x > d.x and self.x < d.x+d.img_w) and (self.y >= d.y and self.y <= d.y+d.img_h):
+            game.gameOver()
+    def display(self):
+        self.update()
+        image(self.img, self.x, self.y, self.w, self.h)
 
 class Game:
     def __init__(self, w, h):
@@ -86,6 +176,7 @@ class Game:
         self.h = h
         self.y_shift = 0
         self.platforms = []
+        self.enemies = []
         self.backgroundImage = loadImage(path+"/assets/bck@2x.png")
         self.addPlatforms(8)
         self.doodler = Doodler(self.platforms[0].x, self.platforms[0].y - 100, 35, 50)
@@ -98,25 +189,27 @@ class Game:
             x = random.randint(0, self.w-80)
             y = (self.h//8)*i
             self.platforms.append(Platform(x, y, 80, 20, "stable"))
-        
+    
     def display(self):
         if self.isStarted:
             strokeWeight(0)
             image(self.backgroundImage,0,0)
-            # self.checkPlatforms()
             for platform in self.platforms:
                 platform.display()
+            for enemy in self.enemies:
+                enemy.display()
             self.doodler.display()
             platform_manager()
             fill(0, 0, 0)
             textSize(30)
             text("Score: "+str(game.score//100), 20, 40)
-            if self.score//100 >= 1000:
+            if self.score//100 >= 300:
                 self.level = 2
-            elif self.score//100 >= 500:
+            elif self.score//100 >= 200:
                 self.level = 1
             else:
                 self.level = 0
+                
         else:
             background(0)
             fill(255, 255, 255)
@@ -136,13 +229,9 @@ class Game:
 game = Game(400, 700)
 
 def platform_manager():
-    for p in game.platforms:
-        if p.y > game.h:
-            game.platforms.remove(p)
-            
     while len(game.platforms) < 7:
         x = random.randint(0, game.w-80)
-        y = abs(600-(120*len(game.platforms)))
+        y = game.platforms[-1].y - 70
         random_num = random.randint(0, 30) 
         if random_num > 25:
             new = Platform(x, y, 80, 20, "moving")
@@ -154,7 +243,31 @@ def platform_manager():
             new = Platform(x, y, 80, 20, "stable")
             game.platforms.append(new)
 
+    if game.level >= 1 and len(game.enemies) < 2:
+        random_value = random.randint(0,100)
+        if random_value % 99 == 0:
+            possible_coordinates = [game.platforms[-1], game.platforms[-2]]
+            coor = random.choice(possible_coordinates)
+            x = coor.x 
+            y = coor.y-30
+            newEnemy = Enemy(0,0,0,0,"")
+            if game.level == 1:
+                newEnemy = Enemy(x, y, 40, 40, "monster1")
+            elif game.level == 2:
+                monsterType = random.choice(['monster2', 'monster3', 'monster4', 'monster5', 'monster6', 'monster7', 'monster8', 'monster9'])
+                newEnemy = Enemy(x, y, 40, 40, monsterType)
+            coor.delegate = newEnemy
+            game.enemies.append(newEnemy)
+    
+    for p in game.platforms:
+        if p.y >= game.h:
+            game.platforms.remove(p)
+    for e in game.enemies:
+        if e.y >= game.h:
+            game.enemies.remove(e)
+
 def setup():
+    frameRate(30)
     size(game.w, game.h)
     background(255, 255, 255)
 
@@ -167,8 +280,8 @@ def keyPressed():
         game.doodler.key_handler[LEFT] = True
     elif keyCode == RIGHT:
         game.doodler.key_handler[RIGHT] = True
-    elif keyCode == ESC:
-        pass
+    elif keyCode == UP:
+        game.doodler.key_handler[UP] = True
     
 def keyReleased():
     if keyCode == LEFT:
@@ -183,6 +296,7 @@ def mousePressed():
         game.isStarted = True
         game.score = 0
         game.platforms = []
+        game.enemies = []
         game.addPlatforms(8)
         game.doodler.x = game.platforms[0].x
         game.doodler.y = game.platforms[0].y - 100
