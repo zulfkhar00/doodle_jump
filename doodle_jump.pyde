@@ -4,6 +4,7 @@ import json
 
 path = os.getcwd()
 
+# In total the logic of the game is divided into Bullet, Doodler, Platform, Enemy, Booster, Game classes
 class Bullet:
     def __init__(self, x, y, w, h):
         self.x = x
@@ -42,7 +43,7 @@ class Doodler():
         self.bullets = []
         self.isBoosted = False
     
-    def display(self):
+    def display(self): # this method shows all the images and animations of Doodler
         self.update()
         if self.vy < -35:
             if self.dir is RIGHT:
@@ -57,7 +58,7 @@ class Doodler():
             else:
                 image(self.l_img, self.x, self.y)
         
-    def update(self): # from example project
+    def update(self): # this method deals with the logical component of the Doodler (i.e. physics and so on)
         if self.y > height+25:
             game.gameOver()
             
@@ -88,7 +89,7 @@ class Doodler():
         
         if not self.isBoosted:
             self.vy += self.accel_g
-            for platform in game.platforms:
+            for platform in game.platforms: # the logic of comparing the coordinates of the Doodler and the platforms
                 if (((self.y+self.img_h >= platform.y) and (self.y+self.img_h <= platform.y+platform.h) and (self.vy >= 0)) and ((self.x >= platform.x-25) and (self.x <= platform.x+platform.w))):
                     self.y = platform.y-70
                     self.vy = -15
@@ -99,12 +100,12 @@ class Doodler():
             self.vy -= 100
         self.x += self.vx
         self.y += self.vy
-        
+        # the logic of illusion of teleportation from side to side
         if self.x <= 0:
             self.x = (width+self.x)
         if self.x >= width:
             self.x = (self.x-width)
-            
+        # the logic of shifting the screen downwards
         if self.y < game.h//2:
             self.climb = (game.h//2-self.y)
             self.y = game.h//2
@@ -156,7 +157,7 @@ class Platform:
     def destroy(self):
         del self
         
-    def blueMove(self):
+    def blueMove(self): # this method moves the blue platforms
         if self.type == "moving":
             if self.x + self.w >= game.w - 5:
                 self.vx = -2
@@ -205,7 +206,7 @@ class Booster:
         else:
             game.doodler.isBoosted = False
     
-    def jetpack(self):
+    def jetpack(self): # the logic of interaction of Doodler and Jetpack Booster
         if self.time < 100:
             self.time += 1
             game.doodler.vy = 0
@@ -236,7 +237,7 @@ class Game:
         self.isStarted = True
         self.level = 0
     
-    def addPlatforms(self, n):
+    def addPlatforms(self, n): # adds n times platforms to the game
         for i in range(n-1, -1, -1):
             x = random.randint(0, self.w-80)
             y = (self.h//8)*i
@@ -264,7 +265,7 @@ class Game:
             else:
                 self.level = 0
                 
-        else:
+        else: # the design of game over screen
             background(0)
             fill(255, 255, 255)
             textAlign(CENTER, CENTER)
@@ -278,7 +279,7 @@ class Game:
             text("Exit: [ESC]", width/2, 9*height/10)
             textAlign(LEFT)
     
-    def showRecords(self):
+    def showRecords(self): # this method reads local file and shows the top results in the game
         records = []
         with open(path + '/records.json') as json_file:
             records = json.load(json_file)['scores']
@@ -291,7 +292,7 @@ class Game:
         else:
             pass
     
-    def gameOver(self):
+    def gameOver(self): # the logic of ending the game
         self.isStarted = not self.isStarted
         data = {}
         with open(path + '/records.json') as json_file:
@@ -304,7 +305,7 @@ class Game:
 
 game = Game(400, 700)
 
-def platform_manager():
+def platform_manager(): # this method deals with adding/removing platforms, enemies, and booster and chooses different types of platforms/enemies  
     while len(game.platforms) < 9:
         x = random.randint(0, game.w-80)
         y = game.platforms[-1].y - 70
